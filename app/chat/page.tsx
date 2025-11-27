@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Bot, Send, Sparkles, Cpu, Wifi } from "lucide-react";
+import { Bot, Send, Sparkles, Cpu, Wifi, Upload, Image as ImageIcon, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { GlassCard } from "@/components/GamificationComponents";
@@ -18,6 +18,12 @@ export default function ChatPage() {
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Image Analysis State
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisResult, setAnalysisResult] = useState<string>("");
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Load conversation history
     useEffect(() => {
@@ -74,6 +80,46 @@ export default function ChatPage() {
             const welcomeMsg: Message = { id: "1", role: "bot", content: "Memory banks purged. Ready for new input." };
             setMessages([welcomeMsg]);
             localStorage.removeItem("chatHistory");
+        }
+    };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setSelectedImage(reader.result as string);
+                setAnalysisResult(""); // Clear previous result
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleAnalyze = async () => {
+        if (!selectedImage) return;
+
+        setIsAnalyzing(true);
+        setAnalysisResult(""); // Clear previous result
+
+        try {
+            const res = await fetch("/api/analyze-image", {
+                method: "POST",
+                body: JSON.stringify({ image: selectedImage }),
+            });
+            const data = await res.json();
+            setAnalysisResult(data.reply);
+        } catch (e) {
+            setAnalysisResult("Analysis failed. Signal lost.");
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    const clearImage = () => {
+        setSelectedImage(null);
+        setAnalysisResult("");
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
         }
     };
 
@@ -197,6 +243,124 @@ export default function ChatPage() {
                                 <Send className="w-4 h-4 mr-2" />
                                 TRANSMIT
                             </Button>
+                        </div>
+                    </div>
+                </GlassCard>
+            </motion.div>
+
+            {/* Neural Circuit Analyzer Section */}
+            <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="w-full max-w-4xl mt-8 mb-12"
+            >
+                <GlassCard className="p-8 border-neon-purple/30 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-20">
+                        <Cpu className="w-24 h-24 text-neon-purple" />
+                    </div>
+
+                    <div className="relative z-10">
+                        <h2 className="text-2xl font-heading font-bold text-white mb-2 flex items-center gap-3">
+                            <Sparkles className="w-6 h-6 text-neon-purple" />
+                            NEURAL CIRCUIT ANALYZER
+                        </h2>
+                        <p className="text-gray-400 mb-6 max-w-2xl">
+                            Upload a photo of a circuit board, schematic, or component. Our vision systems will analyze the architecture and explain its function.
+                        </p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Upload Area */}
+                            <div className="relative h-80">
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileSelect}
+                                    accept="image/*"
+                                    className="hidden"
+                                />
+
+                                {!selectedImage ? (
+                                    <div
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="border-2 border-dashed border-white/20 rounded-lg h-full flex flex-col items-center justify-center text-center hover:border-neon-purple/50 hover:bg-white/5 transition-all cursor-pointer group"
+                                    >
+                                        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                            <Upload className="w-8 h-8 text-gray-400 group-hover:text-neon-purple transition-colors" />
+                                        </div>
+                                        <h3 className="text-white font-bold mb-1">Drop Circuit Image Here</h3>
+                                        <p className="text-sm text-gray-500 mb-4">or click to browse files</p>
+                                        <Button className="bg-neon-purple/20 text-neon-purple hover:bg-neon-purple/30 border-neon-purple/50">
+                                            SELECT FILE
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="h-full relative rounded-lg overflow-hidden border border-white/20 group">
+                                        <img
+                                            src={selectedImage}
+                                            alt="Circuit to analyze"
+                                            className="w-full h-full object-contain bg-black/50"
+                                        />
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                                            <Button
+                                                onClick={clearImage}
+                                                className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/50"
+                                            >
+                                                <X className="w-4 h-4 mr-2" />
+                                                REMOVE
+                                            </Button>
+                                            <Button
+                                                onClick={handleAnalyze}
+                                                disabled={isAnalyzing}
+                                                className="bg-neon-purple/20 text-neon-purple hover:bg-neon-purple/30 border-neon-purple/50"
+                                            >
+                                                {isAnalyzing ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                        ANALYZING...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles className="w-4 h-4 mr-2" />
+                                                        ANALYZE
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Analysis Output Placeholder */}
+                            <div className="bg-black/40 rounded-lg p-6 border border-white/10 flex flex-col h-80 overflow-hidden">
+                                <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-2 shrink-0">
+                                    <span className="text-xs font-mono text-neon-cyan">ANALYSIS LOG</span>
+                                    <span className="text-xs font-mono text-gray-500">
+                                        {isAnalyzing ? "PROCESSING DATA STREAM..." : analysisResult ? "ANALYSIS COMPLETE" : "WAITING FOR INPUT..."}
+                                    </span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                    {analysisResult ? (
+                                        <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap animate-in fade-in duration-500">
+                                            {analysisResult}
+                                        </div>
+                                    ) : (
+                                        <div className="h-full flex flex-col items-center justify-center text-gray-600 font-mono text-sm">
+                                            {isAnalyzing ? (
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <Loader2 className="w-8 h-8 animate-spin text-neon-purple" />
+                                                    <span className="animate-pulse">Scanning circuit topology...</span>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <Cpu className="w-12 h-12 mb-2 opacity-20" />
+                                                    [NO DATA STREAM]
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </GlassCard>
